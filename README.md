@@ -8,6 +8,10 @@ For an overview of CloudWatch Logs Insights, see
 on the AWS Compute Blog. While this blog post focuses on querying logs from AWS Lambda, CloudWatch Logs
 Insights may be used to analyze logs from any logs stored in CloudWatch.
 
+## Save queries using CloudFormation
+
+Queries described below can be persisted in you CloudWatch Logs Insights page using the CloudFormation template in cloudformation.yaml, or by clicking [![Launch CloudFormation template](https://s3.amazonaws.com/cloudformation-examples/cloudformation-launch-stack.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/new?stackName=cwlogs-insights-sample-queries&templateURL=https://raw.githubusercontent.com/aws-samples/cloudwatch-logs-insights-queries/main/cloudformation.yaml)
+
 ---
 
 ## General queries
@@ -131,7 +135,7 @@ filter @type = "REPORT"
 | stats sum(@billedDuration)/1000 * avg(@memorySize)/1024000000 as billedGBs by bin(1m)
 ```
 
-### Comare cold and warm start durations
+### Compare cold and warm start durations
 
 ```sql
 filter @type = "REPORT"
