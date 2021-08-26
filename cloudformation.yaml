@@ -163,4 +163,4 @@ Resources:
 
 Outputs:
   LogInsightsUrl:
-    Value: !Sub "https://${AWS::Region}.console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}"
+    Value: !Sub "https://${AWS::Region}.console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#logsV2:logs-insights"
