@@ -1,0 +1,150 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Persist CloudWatch Logs Insights queries from https://github.com/aws-samples/cloudwatch-logs-insights-queries
+
+Parameters:
+  Folder:
+    Type: String
+    Default: aws-samples
+    AllowedPattern: "^[a-zA-Z0-9/-]*$"
+    Description: "(Optional) Folder to store the queries in."
+    ConstraintDescription: "Folder name must contain only alphanumeric characters. Slashes (/) are folder separators."
+
+Resources:
+  # General Queries
+  MostRecent25Logs:
+    Type: AWS::Logs::QueryDefinition
+    Properties: 
+      Name: !Sub "${Folder}/general/25 most recent logs"
+      QueryString: |
+        fields @timestamp, @message
+          | sort @timestamp desc
+          | limit 25
+  NumExceptionsPerHour:
+    Type: AWS::Logs::QueryDefinition
+    Properties: 
+      Name: !Sub "${Folder}/general/Number of exceptions per hour"
+      QueryString: |
+        filter @message like /Exception/
+          | stats count(*) as exceptionCount by bin(1h)
+          | sort exceptionCount desc
+
+  # Lambda Queries
+  AvgMaxDuration:
+    Type: AWS::Logs::QueryDefinition
+    Properties: 
+      Name: !Sub "${Folder}/lambda/Average and max duration"
+      QueryString: |
+        filter @type ="REPORT"
+        | parse @message /Duration: (?<ms>\S+)/
+        | stats avg(ms),
+          max(ms)
+        by bin(30s)
+  Top100HighestBilledInvocations:
+    Type: AWS::Logs::QueryDefinition
+    Properties: 
+      Name: !Sub "${Folder}/lambda/Top 100 highest billed invocations"
+      QueryString: |
+        filter @type = "REPORT"
+        | fields @requestId, @billedDuration
+        | sort by @billedDuration desc
+        | limit 100
+  CountAvgMaxDurationAvgMemoryColdStarts:
+    Type: AWS::Logs::QueryDefinition
+    Properties: 
+      Name: !Sub "${Folder}/lambda/Find count, average duration, max duration and average memory for cold starts"
+      QueryString: |
+        filter @type ="REPORT"
+        | parse @message /Init Duration: (?<init>\S+)/
+        | stats count() as total,
+          count(init) as coldStarts,
+          avg(init) as avgInitDuration,
+          max(init) as maxInitDuration,
+          avg(@maxMemoryUsed)/1000/1000 as memoryused
+        by bin (1min)
+  PctColdStarts:
+    Type: AWS::Logs::QueryDefinition
+    Properties: 
+      Name: !Sub "${Folder}/lambda/Percentage of cold starts in total invocations"
+      QueryString: |
+        filter @type = "REPORT"
+        | stats
+          sum(strcontains(@message, "Init Duration"))/count(*) * 100 as coldStartPct,
+          avg(@duration)
+        by bin(1m)
+  PercentileReportLambdaDuration:
+    Type: AWS::Logs::QueryDefinition
+    Properties: 
+      Name: !Sub "${Folder}/lambda/Percentile report of Lambda duration"
+      QueryString: |
+        filter @type = "REPORT"
+        | stats
+          avg(@billedDuration) as Average,
+          pct(@billedDuration, 99) as NinetyNinth,
+          pct(@billedDuration, 95) as NinetyFifth,
+          pct(@billedDuration, 90) as Ninetieth
+        by bin(1m)
+  PercentileReportLambdaMemUsage:
+    Type: AWS::Logs::QueryDefinition
+    Properties: 
+      Name: !Sub "${Folder}/lambda/Percentile report of Lambda memory usage"
+      QueryString: |
+        filter @type = "REPORT"
+        | stats avg(@maxMemoryUsed / 1024 / 1024) as mean_MemoryUsed,
+          min(@maxMemoryUsed / 1024 / 1024) as min_MemoryUsed,
+          max(@maxMemoryUsed / 1024 / 1024) as max_MemoryUsed,
+          pct(@maxMemoryUsed / 1024 / 1024, 95) as Percentile
+  InvocationsMemOver75pct:
+    Type: AWS::Logs::QueryDefinition
+    Properties: 
+      Name: !Sub "${Folder}/lambda/Invocations using 75% or more of assigned memory"
+      QueryString: |
+        filter @type = "REPORT" and @maxMemoryUsed >= (@memorySize * 0.75)
+        | stats
+          count_distinct(@requestId)
+        by bin(30m)
+  LatencyReport:
+    Type: AWS::Logs::QueryDefinition
+    Properties: 
+      Name: !Sub "${Folder}/lambda/Latency report"
+      QueryString: |
+        filter @type = "REPORT"
+        | stats avg(@duration),
+          max(@duration),
+          min(@duration)
+        by bin(1m)
+  FreeMemory:
+    Type: AWS::Logs::QueryDefinition
+    Properties: 
+      Name: !Sub "${Folder}/lambda/Free memory"
+      QueryString: |
+        filter @type = "REPORT"
+        | stats max(@memorySize / 1024 / 1024) as provisonedMemMB,
+          min(@maxMemoryUsed / 1024 / 1024) as smallestMemReqMB,
+          avg(@maxMemoryUsed / 1024 / 1024) as avgMemUsedMB,
+          max(@maxMemoryUsed / 1024 / 1024) as maxMemUsedMB,
+          provisonedMemMB - maxMemUsedMB as overProvisionedMB
+  BilledGbS:
+    Type: AWS::Logs::QueryDefinition
+    Properties: 
+      Name: !Sub "${Folder}/lambda/Billed GB-S"
+      QueryString: |
+        filter @type = "REPORT"
+        | stats sum(@billedDuration)/1000 * avg(@memorySize)/1024000000 as billedGBs by bin(1m)
+  CompareColdAndWarmStartDurations:
+    Type: AWS::Logs::QueryDefinition
+    Properties: 
+      Name: !Sub "${Folder}/lambda/Compare cold and warm start durations"
+      QueryString: |
+        filter @type = "REPORT"
+        | fields greatest(@initDuration, 0) + @duration as duration,
+          ispresent(@initDuration) as coldStart
+        | stats count(*) as count,
+          pct(duration, 50) as p50,
+          pct(duration, 90) as p90,
+          pct(duration, 99) as p99,
+          max(duration) as max
+        by coldStart
+
+Outputs:
+  LogInsightsUrl:
+    Value: !Sub "https://${AWS::Region}.console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#logsV2:logs-insights"
