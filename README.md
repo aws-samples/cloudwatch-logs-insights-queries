@@ -10,7 +10,12 @@ Insights may be used to analyze logs from any logs stored in CloudWatch.
 
 ## Save queries using CloudFormation
 
-Queries described below can be persisted in your CloudWatch Logs Insights page using the CloudFormation template in cloudformation.yaml, or by clicking [![Launch CloudFormation template](https://s3.amazonaws.com/cloudformation-examples/cloudformation-launch-stack.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/new?stackName=cwlogs-insights-sample-queries&templateURL=https://raw.githubusercontent.com/aws-samples/cloudwatch-logs-insights-queries/main/cloudformation.yaml)
+Queries described below can be persisted in your CloudWatch Logs Insights page using the CloudFormation template in cloudformation.yaml,
+To deploy the stack with the AWS CLI:
+
+```
+aws cloudformation create-stack --stack-name cloudwatch-logs-insights-queries --template-body file://cloudformation.yaml
+```
 
 ---
 
